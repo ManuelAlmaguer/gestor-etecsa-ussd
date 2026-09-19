@@ -59,4 +59,35 @@ public class EtecsaParsersTest {
         assertEquals(Double.valueOf(120.00d), result.amountCup);
         assertEquals("2026-10-15", result.expirationDateIso);
     }
+
+    @Test
+    public void parsesTheRealMainBalanceResponse() {
+        EtecsaParsers.MainBalanceData result = EtecsaParsers.parseMainBalance(
+                "Saldo: 245.16 CUP. Datos: 1.38 GB. Voz: 00:34:15. SMS: 73. "
+                        + "Linea activa hasta 23-07-27 vence 19-01-28."
+        );
+
+        assertNotNull(result);
+        assertEquals(245.16d, result.balance.amountCup, 0.001d);
+        assertEquals(Long.valueOf(1413L), result.dataUsage.totalMegabytes);
+        assertEquals(Long.valueOf(2055L), result.voiceSms.voiceSeconds);
+        assertEquals(Long.valueOf(73L), result.voiceSms.smsMessages);
+        assertEquals("2027-07-23", result.lineActiveUntilIso);
+        assertEquals("2028-01-19", result.packageExpirationIso);
+    }
+
+    @Test
+    public void parsesTheMonthlyRechargeLimitAndNextAvailableDate() {
+        EtecsaParsers.RechargeData result = EtecsaParsers.parseRechargeStatus(
+                "Ud ha alcanzado el monto de recarga permitido de 360 CUP. "
+                        + "Puede recargar posterior al dia 30-09-26"
+        );
+
+        assertNotNull(result);
+        assertEquals(Double.valueOf(360.0d), result.rechargedThisCycleCup);
+        assertEquals(Double.valueOf(0.0d), result.remainingRechargeCup);
+        assertEquals("2026-09-30", result.limitDateIso);
+        assertEquals("2026-10-01", result.rechargeAvailableDateIso);
+        assertEquals(true, result.limitReached);
+    }
 }

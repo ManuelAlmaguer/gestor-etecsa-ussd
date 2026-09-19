@@ -7,6 +7,7 @@ import com.manu.etecsaussd.data.entity.BalanceSnapshotEntity;
 import com.manu.etecsaussd.data.entity.DataUsageSnapshotEntity;
 import com.manu.etecsaussd.data.entity.RechargeStatusEntity;
 import com.manu.etecsaussd.data.entity.VoiceSmsSnapshotEntity;
+import com.manu.etecsaussd.data.entity.PackageStatusEntity;
 import com.manu.etecsaussd.data.model.DashboardSnapshot;
 import com.manu.etecsaussd.parser.EtecsaParsers;
 import com.manu.etecsaussd.telephony.EtecsaUssdCodes;
@@ -29,23 +30,56 @@ public final class EtecsaRepository {
                 database.balanceSnapshotDao().getLatest(),
                 database.dataUsageSnapshotDao().getLatest(),
                 database.voiceSmsSnapshotDao().getLatest(),
-                database.rechargeStatusDao().getLatest()
+                database.rechargeStatusDao().getLatest(),
+                null
         );
+    }
+
+    public DashboardSnapshot getLatestDashboard(int subscriptionId) {
+        return new DashboardSnapshot(
+                database.balanceSnapshotDao().getLatestForSubscription(subscriptionId),
+                database.dataUsageSnapshotDao().getLatestForSubscription(subscriptionId),
+                database.voiceSmsSnapshotDao().getLatestForSubscription(subscriptionId),
+                database.rechargeStatusDao().getLatestForSubscription(subscriptionId),
+                database.packageStatusDao().getLatestForSubscription(subscriptionId)
+        );
+    }
+
+    public PackageStatusEntity getLatestPackageStatus(int subscriptionId) {
+        return database.packageStatusDao().getLatestForSubscription(subscriptionId);
+    }
+
+    public RechargeStatusEntity getLatestRechargeStatus(int subscriptionId) {
+        return database.rechargeStatusDao().getLatestForSubscription(subscriptionId);
     }
 
     @SuppressLint("MissingPermission")
     public SyncReport syncAll(UssdExecutor ussdExecutor) {
-        int subscriptionId = -1;
+        Integer selectedSubscriptionId = ussdExecutor.getActionSubscriptionId();
+        int subscriptionId;
+        try {
+            subscriptionId = ussdExecutor.resolveSubscriptionIdForUi(selectedSubscriptionId);
+        } catch (UssdExecutionException exception) {
+            return new SyncReport(
+                    -1,
+                    0,
+                    EtecsaUssdCodes.dashboardCodes().size(),
+                    exception.isRetryable(),
+                    java.util.Collections.singletonList(exception.getMessage())
+            );
+        }
+        return syncAll(ussdExecutor, subscriptionId);
+    }
+
+    @SuppressLint("MissingPermission")
+    public SyncReport syncAll(UssdExecutor ussdExecutor, int subscriptionId) {
         int successCount = 0;
         int failureCount = 0;
         boolean retryableFailure = false;
         List<String> errors = new ArrayList<>();
-        Integer selectedSubscriptionId = ussdExecutor.getSelectedSubscriptionId();
-
         for (String code : EtecsaUssdCodes.dashboardCodes()) {
             try {
-                UssdResponse response = ussdExecutor.executeBlocking(code, selectedSubscriptionId);
-                subscriptionId = response.subscriptionId;
+                UssdResponse response = ussdExecutor.executeBlocking(code, subscriptionId);
                 persist(code, response);
                 successCount++;
             } catch (UssdExecutionException | IllegalArgumentException exception) {
@@ -67,43 +101,56 @@ public final class EtecsaRepository {
         long capturedAt = response.receivedAt;
         switch (code) {
             case EtecsaUssdCodes.MAIN_BALANCE:
-                EtecsaParsers.BalanceData balance = EtecsaParsers.parseBalance(response.response);
-                if (balance == null) {
-                    throw new IllegalArgumentException("no se encontró un saldo CUP");
+                EtecsaParsers.MainBalanceData main = EtecsaParsers.parseMainBalance(response.response);
+                if (main == null) {
+                    throw new IllegalArgumentException("no se encontraron datos de la línea");
                 }
-                database.balanceSnapshotDao().insert(new BalanceSnapshotEntity(
-                        response.subscriptionId,
-                        balance.amountCup,
-                        response.response,
-                        capturedAt
-                ));
+                boolean mainDataPersisted = false;
+                if (main.balance != null) {
+                    database.balanceSnapshotDao().insert(new BalanceSnapshotEntity(
+                            response.subscriptionId,
+                            main.balance.amountCup,
+                            main.lineActiveUntilIso,
+                            main.packageExpirationIso,
+                            response.response,
+                            capturedAt
+                    ));
+                    mainDataPersisted = true;
+                }
+                if (main.dataUsage != null) {
+                    insertDataUsage(response, main.dataUsage, capturedAt);
+                    mainDataPersisted = true;
+                }
+                if (main.voiceSms != null) {
+                    insertVoiceSms(response, main.voiceSms, capturedAt);
+                    mainDataPersisted = true;
+                }
+                if (main.packageExpirationIso != null) {
+                    database.packageStatusDao().insert(new PackageStatusEntity(
+                            response.subscriptionId,
+                            main.packageExpirationIso,
+                            response.response,
+                            capturedAt
+                    ));
+                    mainDataPersisted = true;
+                }
+                if (!mainDataPersisted) {
+                    throw new IllegalArgumentException("no se encontraron datos utilizables");
+                }
                 break;
             case EtecsaUssdCodes.MOBILE_DATA:
                 EtecsaParsers.DataUsageData data = EtecsaParsers.parseDataUsage(response.response);
                 if (data == null) {
                     throw new IllegalArgumentException("no se encontraron unidades de datos");
                 }
-                database.dataUsageSnapshotDao().insert(new DataUsageSnapshotEntity(
-                        response.subscriptionId,
-                        data.lteMegabytes,
-                        data.allNetworksMegabytes,
-                        data.totalMegabytes,
-                        response.response,
-                        capturedAt
-                ));
+                insertDataUsage(response, data, capturedAt);
                 break;
             case EtecsaUssdCodes.VOICE_SMS:
                 EtecsaParsers.VoiceSmsData voiceSms = EtecsaParsers.parseVoiceSms(response.response);
                 if (voiceSms == null) {
                     throw new IllegalArgumentException("no se encontraron minutos o SMS");
                 }
-                database.voiceSmsSnapshotDao().insert(new VoiceSmsSnapshotEntity(
-                        response.subscriptionId,
-                        voiceSms.voiceMinutes,
-                        voiceSms.smsMessages,
-                        response.response,
-                        capturedAt
-                ));
+                insertVoiceSms(response, voiceSms, capturedAt);
                 break;
             case EtecsaUssdCodes.RECHARGE_STATUS:
                 EtecsaParsers.RechargeData recharge = EtecsaParsers.parseRechargeStatus(response.response);
@@ -112,8 +159,14 @@ public final class EtecsaRepository {
                 }
                 database.rechargeStatusDao().insert(new RechargeStatusEntity(
                         response.subscriptionId,
-                        recharge.amountCup,
-                        recharge.expirationDateIso,
+                        recharge.rechargedThisCycleCup,
+                        recharge.limitDateIso,
+                        recharge.rechargedThisCycleCup,
+                        recharge.remainingRechargeCup,
+                        recharge.limitCup,
+                        recharge.limitDateIso,
+                        recharge.rechargeAvailableDateIso,
+                        recharge.limitReached,
                         response.response,
                         capturedAt
                 ));
@@ -121,6 +174,39 @@ public final class EtecsaRepository {
             default:
                 throw new IllegalArgumentException("código USSD no soportado");
         }
+    }
+
+    private void insertDataUsage(
+            UssdResponse response,
+            EtecsaParsers.DataUsageData data,
+            long capturedAt
+    ) {
+        Long allNetworks = data.allNetworksMegabytes != null
+                ? data.allNetworksMegabytes
+                : data.totalMegabytes != null ? data.totalMegabytes : data.lteMegabytes;
+        database.dataUsageSnapshotDao().insert(new DataUsageSnapshotEntity(
+                response.subscriptionId,
+                data.lteMegabytes,
+                allNetworks,
+                allNetworks,
+                response.response,
+                capturedAt
+        ));
+    }
+
+    private void insertVoiceSms(
+            UssdResponse response,
+            EtecsaParsers.VoiceSmsData voiceSms,
+            long capturedAt
+    ) {
+        database.voiceSmsSnapshotDao().insert(new VoiceSmsSnapshotEntity(
+                response.subscriptionId,
+                voiceSms.voiceMinutes,
+                voiceSms.voiceSeconds,
+                voiceSms.smsMessages,
+                response.response,
+                capturedAt
+        ));
     }
 
     private String safeMessage(Exception exception) {

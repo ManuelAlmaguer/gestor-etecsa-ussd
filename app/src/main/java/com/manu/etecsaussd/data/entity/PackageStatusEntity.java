@@ -6,24 +6,18 @@ import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 @Entity(
-        tableName = "balance_snapshots",
-        indices = {@Index(value = "captured_at")}
+        tableName = "package_statuses",
+        indices = {@Index(value = {"subscription_id", "captured_at"})}
 )
-public class BalanceSnapshotEntity {
+public class PackageStatusEntity {
     @PrimaryKey(autoGenerate = true)
     public long id;
 
     @ColumnInfo(name = "subscription_id")
     public int subscriptionId;
 
-    @ColumnInfo(name = "amount_cup")
-    public double amountCup;
-
-    @ColumnInfo(name = "line_active_until_iso")
-    public String lineActiveUntilIso;
-
-    @ColumnInfo(name = "package_expiration_iso")
-    public String packageExpirationIso;
+    @ColumnInfo(name = "expiration_date_iso")
+    public String expirationDateIso;
 
     @ColumnInfo(name = "raw_response")
     public String rawResponse;
@@ -31,18 +25,14 @@ public class BalanceSnapshotEntity {
     @ColumnInfo(name = "captured_at")
     public long capturedAt;
 
-    public BalanceSnapshotEntity(
+    public PackageStatusEntity(
             int subscriptionId,
-            double amountCup,
-            String lineActiveUntilIso,
-            String packageExpirationIso,
+            String expirationDateIso,
             String rawResponse,
             long capturedAt
     ) {
         this.subscriptionId = subscriptionId;
-        this.amountCup = amountCup;
-        this.lineActiveUntilIso = lineActiveUntilIso;
-        this.packageExpirationIso = packageExpirationIso;
+        this.expirationDateIso = expirationDateIso;
         this.rawResponse = rawResponse;
         this.capturedAt = capturedAt;
     }

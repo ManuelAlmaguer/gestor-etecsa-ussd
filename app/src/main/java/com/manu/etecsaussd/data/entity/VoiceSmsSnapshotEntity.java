@@ -19,6 +19,9 @@ public class VoiceSmsSnapshotEntity {
     @ColumnInfo(name = "voice_minutes")
     public Long voiceMinutes;
 
+    @ColumnInfo(name = "voice_seconds")
+    public Long voiceSeconds;
+
     @ColumnInfo(name = "sms_messages")
     public Long smsMessages;
 
@@ -31,15 +34,16 @@ public class VoiceSmsSnapshotEntity {
     public VoiceSmsSnapshotEntity(
             int subscriptionId,
             Long voiceMinutes,
+            Long voiceSeconds,
             Long smsMessages,
             String rawResponse,
             long capturedAt
     ) {
         this.subscriptionId = subscriptionId;
         this.voiceMinutes = voiceMinutes;
+        this.voiceSeconds = voiceSeconds;
         this.smsMessages = smsMessages;
         this.rawResponse = rawResponse;
         this.capturedAt = capturedAt;
     }
 }
-

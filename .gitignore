@@ -17,6 +17,7 @@ captures/
 google-services.json
 !artifacts/
 !artifacts/*.apk
+*.idsig
 
 # OS / editor
 .DS_Store

@@ -1,6 +1,7 @@
 package com.manu.etecsaussd.sync;
 
 import android.content.Context;
+import android.telephony.SubscriptionInfo;
 
 import androidx.annotation.NonNull;
 import androidx.work.BackoffPolicy;
@@ -15,6 +16,7 @@ import com.manu.etecsaussd.domain.EtecsaRepository;
 import com.manu.etecsaussd.domain.SyncReport;
 import com.manu.etecsaussd.telephony.UssdExecutor;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Daily background refresh. USSD work is only attempted after runtime permissions exist. */
@@ -27,6 +29,7 @@ public final class EtecsaSyncWorker extends Worker {
 
     @NonNull
     @Override
+    @SuppressWarnings("MissingPermission")
     public Result doWork() {
         EtecsaApplication application = (EtecsaApplication) getApplicationContext();
         UssdExecutor ussdExecutor = application.getUssdExecutor();
@@ -35,14 +38,34 @@ public final class EtecsaSyncWorker extends Worker {
         }
 
         EtecsaRepository repository = application.getRepository();
-        SyncReport report = repository.syncAll(ussdExecutor);
-        if (report.successCount == 0 && report.hasRetryableFailure) {
-            return Result.retry();
-        }
-        if (report.successCount == 0) {
+        List<SubscriptionInfo> activeSubscriptions;
+        try {
+            activeSubscriptions = ussdExecutor.getActiveSubscriptions();
+        } catch (Exception exception) {
             return Result.failure();
         }
-        return Result.success();
+        if (activeSubscriptions.isEmpty()) {
+            return Result.retry();
+        }
+
+        int totalSuccesses = 0;
+        boolean retryableFailure = false;
+        for (SubscriptionInfo subscription : activeSubscriptions) {
+            SyncReport report = repository.syncAll(ussdExecutor, subscription.getSubscriptionId());
+            totalSuccesses += report.successCount;
+            retryableFailure |= report.hasRetryableFailure;
+            if (report.successCount > 0) {
+                EtecsaNotificationScheduler.scheduleForSubscription(
+                        getApplicationContext(),
+                        repository,
+                        subscription.getSubscriptionId()
+                );
+            }
+        }
+        if (totalSuccesses == 0 && retryableFailure) {
+            return Result.retry();
+        }
+        return totalSuccesses == 0 ? Result.failure() : Result.success();
     }
 
     public static void enqueueDailySync(Context context) {
@@ -65,4 +88,3 @@ public final class EtecsaSyncWorker extends Worker {
         );
     }
 }
-

@@ -7,7 +7,7 @@ import org.junit.Test;
 public class EtecsaActionExecutorTest {
     @Test
     public void buildsPackagePurchaseCode() {
-        assertEquals("*133*1#", EtecsaActionExecutor.buildPackageCode("1"));
+        assertEquals("*133*1*4*1#", EtecsaActionExecutor.buildPackageCode("1"));
     }
 
     @Test
@@ -18,4 +18,3 @@ public class EtecsaActionExecutorTest {
         );
     }
 }
-

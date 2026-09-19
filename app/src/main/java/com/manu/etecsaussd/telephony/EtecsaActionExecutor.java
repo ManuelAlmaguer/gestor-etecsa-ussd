@@ -35,7 +35,8 @@ public final class EtecsaActionExecutor {
         if (packageOption == null || !packageOption.matches("[1-9][0-9]{0,3}")) {
             throw new IllegalArgumentException("La opción del paquete debe ser un entero positivo.");
         }
-        return "*133*" + packageOption + "#";
+        // ETECSA menu path: *133# -> 1 Datos -> 4 Planes -> package option.
+        return "*133*1*4*" + packageOption + "#";
     }
 
     public static String buildTransferCode(String phoneNumber, String password, String amount) {

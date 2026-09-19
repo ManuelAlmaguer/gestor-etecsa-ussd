@@ -3,7 +3,6 @@ package com.manu.etecsaussd.telephony;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +14,8 @@ import android.text.TextUtils;
 import androidx.annotation.RequiresPermission;
 import androidx.core.content.ContextCompat;
 
+import com.manu.etecsaussd.data.AppPreferences;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -24,17 +25,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Routes USSD requests through an explicitly selected subscription whenever possible.
- * The executor is intentionally synchronous at this layer so Worker and WebView code can
+ * The executor is intentionally synchronous at this layer so Worker and native UI code can
  * apply one consistent timeout/error policy around Android's callback API.
  */
 public final class UssdExecutor {
-    private static final String PREFS_NAME = "etecsa_preferences";
-    private static final String PREF_SELECTED_SUBSCRIPTION_ID = "selected_subscription_id";
     private static final long DEFAULT_TIMEOUT_SECONDS = 35L;
 
     private final Context context;
     private final SubscriptionManager subscriptionManager;
-    private final SharedPreferences preferences;
+    private final AppPreferences preferences;
     private final Handler callbackHandler = new Handler(Looper.getMainLooper());
     private final long timeoutSeconds;
 
@@ -45,7 +44,7 @@ public final class UssdExecutor {
     UssdExecutor(Context context, long timeoutSeconds) {
         this.context = context.getApplicationContext();
         this.subscriptionManager = (SubscriptionManager) this.context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE);
-        this.preferences = this.context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        this.preferences = AppPreferences.from(this.context);
         this.timeoutSeconds = timeoutSeconds;
     }
 
@@ -57,14 +56,46 @@ public final class UssdExecutor {
     }
 
     public Integer getSelectedSubscriptionId() {
-        if (!preferences.contains(PREF_SELECTED_SUBSCRIPTION_ID)) {
-            return null;
-        }
-        return preferences.getInt(PREF_SELECTED_SUBSCRIPTION_ID, SubscriptionManager.INVALID_SUBSCRIPTION_ID);
+        return preferences.getActionSubscriptionId();
+    }
+
+    public Integer getActionSubscriptionId() {
+        return preferences.getActionSubscriptionId();
+    }
+
+    public Integer getDisplaySubscriptionId() {
+        return preferences.getDisplaySubscriptionId();
     }
 
     @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
     public void setSelectedSubscriptionId(int subscriptionId) throws UssdExecutionException {
+        setActionSubscriptionId(subscriptionId);
+    }
+
+    @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+    public void setActionSubscriptionId(int subscriptionId) throws UssdExecutionException {
+        validateActiveSubscription(subscriptionId);
+        preferences.setActionSubscriptionId(subscriptionId);
+    }
+
+    @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+    public void setDisplaySubscriptionId(int subscriptionId) throws UssdExecutionException {
+        validateActiveSubscription(subscriptionId);
+        preferences.setDisplaySubscriptionId(subscriptionId);
+    }
+
+    @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+    public int resolveSubscriptionIdForUi(Integer preferredSubscriptionId) throws UssdExecutionException {
+        return resolveSubscriptionId(preferredSubscriptionId, true);
+    }
+
+    @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+    public int resolveSubscriptionIdForDisplay(Integer preferredSubscriptionId) throws UssdExecutionException {
+        return resolveSubscriptionId(preferredSubscriptionId, false);
+    }
+
+    @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
+    private void validateActiveSubscription(int subscriptionId) throws UssdExecutionException {
         boolean active = false;
         for (SubscriptionInfo info : getActiveSubscriptions()) {
             if (info.getSubscriptionId() == subscriptionId) {
@@ -78,7 +109,6 @@ public final class UssdExecutor {
                     "La SIM seleccionada ya no está activa."
             );
         }
-        preferences.edit().putInt(PREF_SELECTED_SUBSCRIPTION_ID, subscriptionId).apply();
     }
 
     @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
@@ -124,7 +154,7 @@ public final class UssdExecutor {
             );
         }
 
-        int subscriptionId = resolveSubscriptionId(preferredSubscriptionId);
+        int subscriptionId = resolveSubscriptionId(preferredSubscriptionId, true);
         TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
         if (telephonyManager == null) {
             throw new UssdExecutionException(
@@ -216,7 +246,8 @@ public final class UssdExecutor {
     }
 
     @RequiresPermission(Manifest.permission.READ_PHONE_STATE)
-    private int resolveSubscriptionId(Integer preferredSubscriptionId) throws UssdExecutionException {
+    private int resolveSubscriptionId(Integer preferredSubscriptionId, boolean includeActionPreference)
+            throws UssdExecutionException {
         List<SubscriptionInfo> activeSubscriptions = getActiveSubscriptions();
         if (activeSubscriptions.isEmpty()) {
             throw new UssdExecutionException(
@@ -229,9 +260,11 @@ public final class UssdExecutor {
             return preferredSubscriptionId;
         }
 
-        Integer storedSubscriptionId = getSelectedSubscriptionId();
-        if (storedSubscriptionId != null && containsSubscription(activeSubscriptions, storedSubscriptionId)) {
-            return storedSubscriptionId;
+        if (includeActionPreference) {
+            Integer storedSubscriptionId = getSelectedSubscriptionId();
+            if (storedSubscriptionId != null && containsSubscription(activeSubscriptions, storedSubscriptionId)) {
+                return storedSubscriptionId;
+            }
         }
 
         int defaultDataSubscriptionId = SubscriptionManager.getDefaultDataSubscriptionId();

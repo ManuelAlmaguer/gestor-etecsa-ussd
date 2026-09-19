@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">Gestor ETECSA</string>
+    <string name="app_name">Manu ETECSA</string>
+    <string name="about_name">Manuel Almaguer Sosa</string>
+    <string name="about_subtitle">Gestor personal de líneas ETECSA</string>
 </resources>

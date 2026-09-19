@@ -13,5 +13,7 @@ public interface BalanceSnapshotDao {
 
     @Query("SELECT * FROM balance_snapshots ORDER BY captured_at DESC LIMIT 1")
     BalanceSnapshotEntity getLatest();
-}
 
+    @Query("SELECT * FROM balance_snapshots WHERE subscription_id = :subscriptionId ORDER BY captured_at DESC LIMIT 1")
+    BalanceSnapshotEntity getLatestForSubscription(int subscriptionId);
+}

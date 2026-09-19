@@ -13,5 +13,7 @@ public interface VoiceSmsSnapshotDao {
 
     @Query("SELECT * FROM voice_sms_snapshots ORDER BY captured_at DESC LIMIT 1")
     VoiceSmsSnapshotEntity getLatest();
-}
 
+    @Query("SELECT * FROM voice_sms_snapshots WHERE subscription_id = :subscriptionId ORDER BY captured_at DESC LIMIT 1")
+    VoiceSmsSnapshotEntity getLatestForSubscription(int subscriptionId);
+}

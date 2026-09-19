@@ -13,5 +13,7 @@ public interface RechargeStatusDao {
 
     @Query("SELECT * FROM recharge_statuses ORDER BY captured_at DESC LIMIT 1")
     RechargeStatusEntity getLatest();
-}
 
+    @Query("SELECT * FROM recharge_statuses WHERE subscription_id = :subscriptionId ORDER BY captured_at DESC LIMIT 1")
+    RechargeStatusEntity getLatestForSubscription(int subscriptionId);
+}

@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.GestorEtecsa" parent="Theme.Material3.Dark.NoActionBar">
+    <style name="Theme.ManuEtecsa" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:statusBarColor">@color/app_background</item>
@@ -7,5 +7,10 @@
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:colorAccent">@color/app_blue</item>
     </style>
-</resources>
 
+    <style name="Theme.ManuEtecsa.Dialog" parent="Theme.Material3.Dark.Dialog">
+        <item name="android:colorAccent">@color/app_blue</item>
+    </style>
+
+    <style name="Theme.GestorEtecsa" parent="Theme.ManuEtecsa" />
+</resources>

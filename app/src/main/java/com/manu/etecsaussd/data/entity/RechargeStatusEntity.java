@@ -22,6 +22,24 @@ public class RechargeStatusEntity {
     @ColumnInfo(name = "expiration_date_iso")
     public String expirationDateIso;
 
+    @ColumnInfo(name = "recharged_this_cycle_cup")
+    public Double rechargedThisCycleCup;
+
+    @ColumnInfo(name = "remaining_recharge_cup")
+    public Double remainingRechargeCup;
+
+    @ColumnInfo(name = "limit_cup")
+    public double limitCup;
+
+    @ColumnInfo(name = "limit_date_iso")
+    public String limitDateIso;
+
+    @ColumnInfo(name = "recharge_available_date_iso")
+    public String rechargeAvailableDateIso;
+
+    @ColumnInfo(name = "limit_reached")
+    public boolean limitReached;
+
     @ColumnInfo(name = "raw_response")
     public String rawResponse;
 
@@ -32,14 +50,25 @@ public class RechargeStatusEntity {
             int subscriptionId,
             Double amountCup,
             String expirationDateIso,
+            Double rechargedThisCycleCup,
+            Double remainingRechargeCup,
+            double limitCup,
+            String limitDateIso,
+            String rechargeAvailableDateIso,
+            boolean limitReached,
             String rawResponse,
             long capturedAt
     ) {
         this.subscriptionId = subscriptionId;
         this.amountCup = amountCup;
         this.expirationDateIso = expirationDateIso;
+        this.rechargedThisCycleCup = rechargedThisCycleCup;
+        this.remainingRechargeCup = remainingRechargeCup;
+        this.limitCup = limitCup;
+        this.limitDateIso = limitDateIso;
+        this.rechargeAvailableDateIso = rechargeAvailableDateIso;
+        this.limitReached = limitReached;
         this.rawResponse = rawResponse;
         this.capturedAt = capturedAt;
     }
 }
-

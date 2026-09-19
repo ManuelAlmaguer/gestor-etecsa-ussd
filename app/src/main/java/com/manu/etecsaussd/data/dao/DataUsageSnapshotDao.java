@@ -13,5 +13,7 @@ public interface DataUsageSnapshotDao {
 
     @Query("SELECT * FROM data_usage_snapshots ORDER BY captured_at DESC LIMIT 1")
     DataUsageSnapshotEntity getLatest();
-}
 
+    @Query("SELECT * FROM data_usage_snapshots WHERE subscription_id = :subscriptionId ORDER BY captured_at DESC LIMIT 1")
+    DataUsageSnapshotEntity getLatestForSubscription(int subscriptionId);
+}
