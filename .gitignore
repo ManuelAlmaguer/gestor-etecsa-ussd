@@ -1,0 +1,24 @@
+# Android / Gradle
+.gradle/
+build/
+*/build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Generated / local secrets
+*.apk
+*.aab
+*.keystore
+*.jks
+google-services.json
+!artifacts/
+!artifacts/*.apk
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
